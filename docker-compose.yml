@@ -1,4 +1,4 @@
-version: '3'
+version: '3.7'
 services:
   postgres:
     image: postgres:9.6
@@ -6,31 +6,44 @@ services:
       - POSTGRES_USER=airflow
       - POSTGRES_PASSWORD=airflow
       - POSTGRES_DB=airflow
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
     ports:
       - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
 
   webserver:
-    image: puckel/docker-airflow:1.10.1
+    image: puckel/docker-airflow:1.10.9
     build:
-      context: https://github.com/puckel/docker-airflow.git#1.10.1
+      context: ./docker
       dockerfile: Dockerfile
       args:
+        AIRFLOW_VERSION: 1.10.9
         AIRFLOW_DEPS: gcp_api,s3
-        PYTHON_DEPS: sqlalchemy==1.2.0
+        PYTHON_DEPS: sqlalchemy==1.2.0 docker
     restart: always
     depends_on:
       - postgres
     environment:
       - LOAD_EX=n
       - EXECUTOR=Local
-      - FERNET_KEY=jsDPRErfv8Z_eVTnGfF8ywd19j4pyqE3NpdUBA_oRTo=
     volumes:
-      - ./examples/intro-example/dags:/usr/local/airflow/dags
+      - ./dags:/usr/local/airflow/dags
       # Uncomment to include custom plugins
-      # - ./plugins:/usr/local/airflow/plugins
+      - ./plugins:/usr/local/airflow/plugins
+      # Docker inside container
+      # docker exec --user root airflow-docker-ready_webserver_1 chmod 777 /var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8080:8080"
     command: webserver
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pid ]"]
       interval: 30s
